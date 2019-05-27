@@ -1,7 +1,7 @@
 Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
 Bundle-Name: MQTT Thing Binding
-Bundle-SymbolicName: org.openhab.binding.mqtt.generic;singleton:=true
+Bundle-SymbolicName: org.openhab.binding.mqtt.cloudIO;singleton:=true
 Bundle-Vendor: openHAB
 Bundle-Version: 2.5.0.qualifier
 Bundle-RequiredExecutionEnvironment: JavaSE-1.8

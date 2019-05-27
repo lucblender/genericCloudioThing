@@ -32,8 +32,12 @@ import org.eclipse.smarthome.core.thing.Thing;
 import org.eclipse.smarthome.core.thing.ThingStatus;
 import org.eclipse.smarthome.core.thing.ThingStatusDetail;
 import org.eclipse.smarthome.core.thing.type.ChannelTypeUID;
+import org.eclipse.smarthome.core.types.Command;
+import org.eclipse.smarthome.core.types.RefreshType;
 import org.eclipse.smarthome.core.types.StateDescription;
+import org.eclipse.smarthome.core.types.UnDefType;
 import org.eclipse.smarthome.io.transport.mqtt.MqttBrokerConnection;
+import org.openhab.binding.mqtt.generic.internal.GenericThingConfiguration;
 import org.openhab.binding.mqtt.generic.internal.generic.ChannelConfig;
 import org.openhab.binding.mqtt.generic.internal.generic.ChannelState;
 import org.openhab.binding.mqtt.generic.internal.generic.ChannelStateTransformation;
@@ -56,6 +60,8 @@ public class GenericThingHandler extends AbstractMQTTThingHandler implements Cha
     final Map<ChannelUID, ChannelState> channelStateByChannelUID = new HashMap<>();
     protected final MqttChannelStateDescriptionProvider stateDescProvider;
     protected final TransformationServiceProvider transformationServiceProvider;
+
+    protected GenericThingConfiguration config = new GenericThingConfiguration();
 
     /**
      * Creates a new Thing handler for generic MQTT channels.
@@ -143,7 +149,46 @@ public class GenericThingHandler extends AbstractMQTTThingHandler implements Cha
     }
 
     @Override
+    public void handleCommand(ChannelUID channelUID, Command command) {
+        if (connection == null) {
+            return;
+        }
+
+        final @Nullable ChannelState data = getChannelState(channelUID);
+
+        if (data == null) {
+            logger.warn("Channel {} not supported", channelUID.getId());
+            if (command instanceof RefreshType) {
+                updateState(channelUID.getId(), UnDefType.UNDEF);
+            }
+            return;
+        }
+
+        if (command instanceof RefreshType || data.isReadOnly()) {
+            updateState(channelUID.getId(), data.getCache().getChannelState());
+            return;
+        }
+
+        ChannelTypeUID channelTypeUID = null;
+        // for all channel in the thing test the ID and retrieve the channel type
+        for (Channel channel : thing.getChannels()) {
+            if (channel.getUID().toString().equals(channelUID.toString())) {
+                channelTypeUID = channel.getChannelTypeUID();
+            }
+        }
+
+        // TODO here we go for the publish
+        final CompletableFuture<@Nullable Void> future = data.publishValueConfig(config, channelTypeUID, command);
+        future.exceptionally(e -> {
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getLocalizedMessage());
+            return null;
+        }).thenRun(() -> logger.debug("Successfully published value {} to topic {}", command, data.getStateTopic()));
+    }
+
+    @Override
     public void initialize() {
+
+        config = getConfigAs(GenericThingConfiguration.class);
         List<ChannelUID> configErrors = new ArrayList<>();
         for (Channel channel : thing.getChannels()) {
             final ChannelTypeUID channelTypeUID = channel.getChannelTypeUID();
@@ -156,8 +201,7 @@ public class GenericThingHandler extends AbstractMQTTThingHandler implements Cha
                 Value value = ValueFactory.createValueState(channelConfig, channelTypeUID.getId());
                 ChannelState channelState = createChannelState(channelConfig, channel.getUID(), value);
                 channelStateByChannelUID.put(channel.getUID(), channelState);
-                StateDescription description = value.createStateDescription(channelConfig.unit,
-                        StringUtils.isBlank(channelConfig.commandTopic));
+                StateDescription description = value.createStateDescription(channelConfig.unit, false);// StringUtils.isBlank(channelConfig.commandTopic));
                 stateDescProvider.setDescription(channel.getUID(), description);
             } catch (IllegalArgumentException e) {
                 logger.warn("Channel configuration error", e);

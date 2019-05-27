@@ -10,14 +10,19 @@
 			<description>These configuration parameters allow you to alter a value before it is published to MQTT or before a received value is assigned to an item.</description>
 			<advanced>true</advanced>
 		</parameter-group>
-
+        
+        <parameter name="cloudioObject" type="text" required="true" pattern="^[a-zA-Z0-9]+$">
+            <label>CloudIo Object name</label>
+            <description>CloudIo Object name, only alphanumeric characters allowed</description>
+        </parameter>
+        <parameter name="cloudioAttribute" type="text" required="true" pattern="^[a-zA-Z0-9]+$">
+            <label>CloudIo Attribute name</label>
+            <description>CloudIo Attribute name, only alphanumeric characters allowed</description>
+        </parameter>
+   
 		<parameter name="stateTopic" type="text">
 			<label>MQTT state topic</label>
 			<description>An MQTT topic that this thing will subscribe to, to receive the state. This can be left empty, the channel will be state-less command-only channel.</description>
-		</parameter>
-		<parameter name="commandTopic" type="text">
-			<label>MQTT command topic</label>
-			<description>An MQTT topic that this thing will send a command to. If not set, this will be a read-only switch.</description>
 		</parameter>
 		<parameter name="transformationPattern" type="text" groupName="transformations">
 			<label>Incoming value transformations</label>

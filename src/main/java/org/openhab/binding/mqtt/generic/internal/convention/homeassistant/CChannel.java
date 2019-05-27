@@ -70,7 +70,8 @@ public class CChannel {
         this.channelUID = new ChannelUID(component.channelGroupUID, channelID);
         channelTypeUID = component.haID.getChannelTypeID(channelID);
         channelState = new ChannelState(ChannelConfigBuilder.create().withRetain(true).withStateTopic(state_topic)
-                .withCommandTopic(command_topic).build(), channelUID, valueState, channelStateUpdateListener);
+                // .withCommandTopic(command_topic)
+                .build(), channelUID, valueState, channelStateUpdateListener);
 
         if (StringUtils.isBlank(state_topic)) {
             type = ChannelTypeBuilder.trigger(channelTypeUID, label)

@@ -26,10 +26,12 @@ import org.apache.commons.lang.StringUtils;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.eclipse.smarthome.core.thing.ChannelUID;
+import org.eclipse.smarthome.core.thing.type.ChannelTypeUID;
 import org.eclipse.smarthome.core.types.Command;
 import org.eclipse.smarthome.core.types.TypeParser;
 import org.eclipse.smarthome.io.transport.mqtt.MqttBrokerConnection;
 import org.eclipse.smarthome.io.transport.mqtt.MqttMessageSubscriber;
+import org.openhab.binding.mqtt.generic.internal.GenericThingConfiguration;
 import org.openhab.binding.mqtt.generic.internal.values.Value;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -66,8 +68,10 @@ public class ChannelState implements MqttMessageSubscriber {
      * Creates a new channel state.
      *
      * @param config The channel configuration
-     * @param channelUID The channelUID is used for the {@link ChannelStateUpdateListener} to notify about value changes
-     * @param cachedValue MQTT only notifies us once about a value, during the subscribe. The channel state therefore
+     * @param channelUID The channelUID is used for the {@link ChannelStateUpdateListener} to notify
+     *            about value changes
+     * @param cachedValue MQTT only notifies us once about a value, during the subscribe. The channel
+     *            state therefore
      *            needs a cache for the current value.
      * @param channelStateUpdateListener A channel state update listener
      */
@@ -77,7 +81,7 @@ public class ChannelState implements MqttMessageSubscriber {
         this.channelStateUpdateListener = channelStateUpdateListener;
         this.channelUID = channelUID;
         this.cachedValue = cachedValue;
-        this.readOnly = StringUtils.isBlank(config.commandTopic);
+        this.readOnly = false;// StringUtils.isBlank(config.commandTopic);
     }
 
     public boolean isReadOnly() {
@@ -199,6 +203,20 @@ public class ChannelState implements MqttMessageSubscriber {
     }
 
     /**
+     * Returns the cloudIOObject
+     */
+    public String getCloudioObject() {
+        return config.cloudioObject;
+    }
+
+    /**
+     * Returns the cloudIOAttribute
+     */
+    public String getCloudioAttribute() {
+        return config.cloudioAttribute;
+    }
+
+    /**
      * Returns the state topic. Might be an empty string if this is a stateless channel (TRIGGER kind channel).
      */
     public String getStateTopic() {
@@ -208,9 +226,11 @@ public class ChannelState implements MqttMessageSubscriber {
     /**
      * Return the command topic. Might be an empty string, if this is a read-only channel.
      */
-    public String getCommandTopic() {
-        return config.commandTopic;
-    }
+    /*
+     * public String getCommandTopic() {
+     * return config.commandTopic;
+     * }
+     */
 
     /**
      * Returns the channelType ID which also happens to be an item-type
@@ -273,7 +293,8 @@ public class ChannelState implements MqttMessageSubscriber {
      *
      * @param connection A broker connection
      * @param scheduler A scheduler to realize the timeout
-     * @param timeout A timeout in milliseconds. Can be 0 to disable the timeout and let the future return earlier.
+     * @param timeout A timeout in milliseconds. Can be 0 to disable the timeout and let the future
+     *            return earlier.
      * @param channelStateUpdateListener An update listener
      * @return A future that completes with true if the subscribing worked, with false if the stateTopic is not set
      *         and exceptionally otherwise.
@@ -340,9 +361,102 @@ public class ChannelState implements MqttMessageSubscriber {
                 mqttCommandValue = t.processValue(mqttCommandValue);
             }
             // Send retained messages if this is a stateful channel
-            return connection.publish(config.commandTopic, mqttCommandValue.getBytes(), 1, config.retained)
+            // TODO here we publish
+            return connection
+                    .publish("/" + config.cloudioObject + "/titi/tata", mqttCommandValue.getBytes(), 1, config.retained)
                     .thenRun(() -> {
                     });
+        } else {
+            CompletableFuture<@Nullable Void> f = new CompletableFuture<>();
+            f.completeExceptionally(new IllegalStateException("No connection or readOnly channel!"));
+            return f;
+        }
+    }
+
+    /**
+     * Publishes a value on MQTT. A command topic needs to be set in the configuration.
+     *
+     * @param command The command to send
+     * @return A future that completes with true if the publishing worked and false and/or exceptionally otherwise.
+     */
+    public CompletableFuture<@Nullable Void> publishValueConfig(GenericThingConfiguration brokerConfig,
+            @Nullable ChannelTypeUID channelTypeUID, Command command) {
+        cachedValue.update(command);
+
+        String mqttCommandValue = cachedValue.getMQTTpublishValue();
+
+        final MqttBrokerConnection connection = this.connection;
+
+        if (!readOnly && connection != null) {
+            // Formatter: Applied before the channel state value is published to the MQTT broker.
+            if (config.formatBeforePublish.length() > 0) {
+                try (Formatter formatter = new Formatter()) {
+                    Formatter format = formatter.format(config.formatBeforePublish, mqttCommandValue);
+                    mqttCommandValue = format.toString();
+                } catch (IllegalFormatException e) {
+                    logger.debug("Format pattern incorrect for {}", channelUID, e);
+                }
+            }
+            // Outgoing transformations
+            for (ChannelStateTransformation t : transformationsOut) {
+                mqttCommandValue = t.processValue(mqttCommandValue);
+            }
+            // Send retained messages if this is a stateful channel
+            // TODO here we publish
+            String topic = String.format("@update/%s/nodes/%s/objects/%s/attributes/%s", brokerConfig.cloudioEndpoint,
+                    brokerConfig.cloudioNode, config.cloudioObject, config.cloudioAttribute);
+
+            String epochTimeMilli = String.format("%.3f", System.currentTimeMillis() / 1000.0);
+            String type = "";
+            if (channelTypeUID != null) {
+                System.out.println("\n" + channelTypeUID.toString() + "\n");
+                switch (channelTypeUID.toString()) {
+                    case "mqtt:dimmer":
+                        type = "Number";
+                        break;
+                    case "mqtt:switch":
+                        type = "Bool";
+                        if (mqttCommandValue.equals("ON")) {
+                            mqttCommandValue = "true";
+                        } else if (mqttCommandValue.equals("OFF")) {
+                            mqttCommandValue = "false";
+                        } else {
+                            mqttCommandValue = "true";
+                            logger.warn("Unknown format value for mqtt:switch");
+                        }
+                        break;
+                    case "mqtt:string":
+                    case "mqtt:location":
+                    case "mqtt:colorRGB":
+                    case "mqtt:colorHSB":
+                    case "mqtt:datetime":
+                        type = "String";
+                        break;
+                    case "mqtt:number":
+                        type = "Integer";
+                        break;
+
+                    default:
+                        logger.warn("Channel type: " + channelTypeUID.toString()
+                                + " is not fully implemented for cloud.Io channel");
+                        break;
+                }
+            }
+            String content;
+            if (type.equals("String")) {
+                content = String.format("{\n" + "\"type\": \"%s\",\n" + "\"constraint\": \"%s\",\n"
+                        + "\"timestamp\": %s,\n" + "\"value\": \"%s\"\n" + "}", type, "Measure", epochTimeMilli,
+                        mqttCommandValue);
+            } else {
+                content = String.format("{\n" + "\"type\": \"%s\",\n" + "\"constraint\": \"%s\",\n"
+                        + "\"timestamp\": %s,\n" + "\"value\": %s\n" + "}", type, "Measure", epochTimeMilli,
+                        mqttCommandValue);
+            }
+
+            System.out.println(content);
+
+            return connection.publish(topic, content.getBytes(), 1, config.retained).thenRun(() -> {
+            });
         } else {
             CompletableFuture<@Nullable Void> f = new CompletableFuture<>();
             f.completeExceptionally(new IllegalStateException("No connection or readOnly channel!"));

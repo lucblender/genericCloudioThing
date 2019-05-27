@@ -32,8 +32,10 @@ public class ChannelConfigBuilder {
         return new ChannelConfigBuilder();
     }
 
-    public static ChannelConfigBuilder create(@Nullable String stateTopic, @Nullable String commandTopic) {
-        return new ChannelConfigBuilder().withStateTopic(stateTopic).withCommandTopic(commandTopic);
+    public static ChannelConfigBuilder create(@Nullable String stateTopic, @Nullable String commandTopic,
+            @Nullable String cloudioObject, @Nullable String cloudioAttribute) {
+        return new ChannelConfigBuilder().withStateTopic(stateTopic)// .withCommandTopic(commandTopic)
+                .withCloudioObject(cloudioObject).withCloudioAttribute(cloudioAttribute);
     }
 
     public ChannelConfig build() {
@@ -52,9 +54,25 @@ public class ChannelConfigBuilder {
         return this;
     }
 
-    public ChannelConfigBuilder withCommandTopic(@Nullable String topic) {
-        if (topic != null) {
-            config.commandTopic = topic;
+    /*
+     * public ChannelConfigBuilder withCommandTopic(@Nullable String topic) {
+     * if (topic != null) {
+     * config.commandTopic = topic;
+     * }
+     * return this;
+     * }
+     */
+
+    public ChannelConfigBuilder withCloudioObject(@Nullable String cloudioObject) {
+        if (cloudioObject != null) {
+            config.cloudioObject = cloudioObject;
+        }
+        return this;
+    }
+
+    public ChannelConfigBuilder withCloudioAttribute(@Nullable String cloudioAttribute) {
+        if (cloudioAttribute != null) {
+            config.cloudioAttribute = cloudioAttribute;
         }
         return this;
     }

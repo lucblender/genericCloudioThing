@@ -27,7 +27,9 @@ import org.eclipse.jdt.annotation.Nullable;
 public class ChannelConfig {
     /** This is either a state topic or a trigger topic, depending on {@link #trigger}. */
     public String stateTopic = "";
-    public String commandTopic = "";
+    // public String commandTopic = "";
+    public String cloudioObject = "";
+    public String cloudioAttribute = "";
 
     /**
      * If true, the channel state is not updated on a new message.

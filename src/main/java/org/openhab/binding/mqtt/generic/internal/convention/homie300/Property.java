@@ -200,9 +200,11 @@ public class Property implements AttributeChanged {
             b = b.withFormatter("%d"); // Apply formatter to only publish integers
         }
 
-        if (attributes.settable) {
-            b = b.withCommandTopic(commandTopic);
-        }
+        /*
+         * if (attributes.settable) {
+         * b = b.withCommandTopic(commandTopic);
+         * }
+         */
 
         final ChannelState channelState = new ChannelState(b.build(), channelUID, value, callback);
         this.channelState = channelState;

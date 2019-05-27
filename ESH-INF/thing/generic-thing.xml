@@ -9,8 +9,18 @@
 			<bridge-type-ref id="broker" />
 			<bridge-type-ref id="systemBroker" />
 		</supported-bridge-type-refs>
-		<label>Generic MQTT Thing</label>
+		<label>Generic cloud.iO Thing</label>
 		<description>You need a configured Broker first. Dynamically add channels of various types to this Thing. Link different MQTT topics to each channel.</description>
+		<config-description>
+	         <parameter name="cloudioEndpoint" type="text" required="true" pattern="^[a-zA-Z0-9]+$">
+	            <label>CloudIo Endpoint name</label>
+	            <description>CloudIo Endpoint name, only alphanumeric characters allowed</description>
+	        </parameter>
+	        <parameter name="cloudioNode" type="text" required="true" pattern="^[a-zA-Z0-9]+$">
+                <label>CloudIo Node name</label>
+                <description>CloudIo Node name, only alphanumeric characters allowed</description>
+            </parameter>
+	     </config-description>
 	</thing-type>
 
 </thing:thing-descriptions>
